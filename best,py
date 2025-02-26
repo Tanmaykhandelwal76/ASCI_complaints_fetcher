@@ -1,0 +1,75 @@
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from datetime import datetime
+
+def scrape_complaints(start_date, end_date):
+    # Initialize the Chrome WebDriver
+    driver = webdriver.Chrome()
+    driver.get("https://www.ascionline.in/complaint-outcomes/")
+    
+    # Set up a wait object with a 10-second timeout
+    wait = WebDriverWait(driver, 10)
+    
+    # Handle potential overlays (e.g., cookie consent popup)
+    try:
+        # Replace '.close' with the actual selector for the overlay's close button if present
+        close_button = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, ".close")))
+        close_button.click()
+        print("Closed overlay (e.g., cookie popup).")
+    except:
+        print("No overlay found or it didn’t need closing.")
+    
+    # Wait for the "From" date input to be clickable
+    from_date_input = wait.until(EC.element_to_be_clickable((By.ID, "DATE_FROM")))
+    
+    # Clear and set the "From" date
+    from_date_input.clear()
+    from_date_input.send_keys(start_date.strftime("%Y-%m-%d"))
+    
+    # Wait for the "To" date input to be clickable
+    to_date_input = wait.until(EC.element_to_be_clickable((By.ID, "DATE_TO")))
+    
+    # Clear and set the "To" date
+    to_date_input.clear()
+    to_date_input.send_keys(end_date.strftime("%Y-%m-%d"))
+    
+    # Wait for the complaint list to update (adjust selector as needed)
+    wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "#comOutcome ul.searchBarCon_ul_comOutcome li")))
+    
+    # Extract complaint details
+    complaint_list = driver.find_elements(By.CSS_SELECTOR, "#comOutcome ul.searchBarCon_ul_comOutcome li")
+    complaints = []
+    for li in complaint_list:
+        try:
+            title = li.find_element(By.CLASS_NAME, "comOutcomeTitle").find_element(By.TAG_NAME, "a").text
+            link = li.find_element(By.CLASS_NAME, "comOutcomeTitle").find_element(By.TAG_NAME, "a").get_attribute("href")
+            spans = li.find_element(By.CLASS_NAME, "spanline").find_elements(By.TAG_NAME, "span")
+            outcome = spans[0].text.strip()
+            source = spans[1].text.strip()
+            date_str = spans[2].text.strip()
+            description = li.find_element(By.CSS_SELECTOR, "p:not([class])").text.strip()
+            complaints.append({
+                "title": title,
+                "link": link,
+                "outcome": outcome,
+                "source": source,
+                "date": date_str,
+                "description": description
+            })
+        except Exception as e:
+            print(f"Error extracting complaint: {e}")
+    
+    # Clean up and return results
+    driver.quit()
+    return complaints
+
+# Example usage
+start_date = datetime(2025, 2, 1)
+end_date = datetime(2025, 2, 15)
+complaints = scrape_complaints(start_date, end_date)
+print(f"Scraped {len(complaints)} complaints.")
+
+
+
