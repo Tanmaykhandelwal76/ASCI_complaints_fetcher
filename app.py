@@ -38,21 +38,31 @@ def scrape_complaints(start_date, end_date, headless=True):
         except Exception:
             pass
         
-        # Find the date input elements
-        date_from_input = driver.find_element(By.ID, "DATE_FROM")
-        date_to_input = driver.find_element(By.ID, "DATE_TO")
-
-        # Clear any existing values
-        date_from_input.clear()
-        date_to_input.clear()
-
-        # Type the dates
-        date_from_input.send_keys(start_date.strftime("%m-%d-%Y"))
+        # Format dates in YYYY-MM-DD format
+        start_date_str = start_date.strftime("%Y-%m-%d")
+        end_date_str = end_date.strftime("%Y-%m-%d")
+        
+        # Find date inputs and set values using JavaScript
+        script = """
+            const fromInput = document.getElementById('DATE_FROM');
+            const toInput = document.getElementById('DATE_TO');
+            
+            fromInput.value = arguments[0];
+            toInput.value = arguments[1];
+            
+            // Trigger change events
+            fromInput.dispatchEvent(new Event('change', { bubbles: true }));
+            toInput.dispatchEvent(new Event('change', { bubbles: true }));
+            
+            // Trigger input events
+            fromInput.dispatchEvent(new Event('input', { bubbles: true }));
+            toInput.dispatchEvent(new Event('input', { bubbles: true }));
+        """
+        
+        driver.execute_script(script, start_date_str, end_date_str)
+        
+        # Wait for the results to load
         time.sleep(5)
-        date_to_input.send_keys(end_date.strftime("%m-%d-%Y"))
-
-        # Sleep for a moment
-        time.sleep(2)
         
         # Wait for complaints to load
         wait.until(EC.presence_of_element_located(
