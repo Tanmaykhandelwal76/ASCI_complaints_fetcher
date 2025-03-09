@@ -96,9 +96,22 @@ def scrape_complaints(start_date, end_date, headless=True):
         else:
             st.error("Could not find date input fields")
             return []
-        
-        # Wait for the results to load
+            
+        # Wait for results to load after date range is set
         time.sleep(5)
+        
+        # Get total expected complaints count after date range is applied
+        try:
+            count_span = wait.until(EC.presence_of_element_located(
+                (By.CSS_SELECTOR, "#CountComplaint > br + span")
+            ))
+            count_text = count_span.text.strip()
+            # Remove parentheses and whitespace
+            total_expected = int(''.join(filter(str.isdigit, count_text)))
+            st.write(f"Expected complaints in date range: {total_expected}")
+        except Exception as e:
+            st.error(f"Could not get complaint count: {str(e)}")
+            total_expected = None
         
         try:
             # Wait for complaints to load
@@ -108,15 +121,34 @@ def scrape_complaints(start_date, end_date, headless=True):
             time.sleep(3)
             
             # Load all complaints by clicking "Show More"
+            current_count = 0
             while True:
                 try:
+                    # Get current count
+                    current_results = driver.find_elements(
+                        By.CSS_SELECTOR, "#comOutcome ul.searchBarCon_ul_comOutcome li"
+                    )
+                    current_count = len(current_results)
+                    st.write(f"Current complaints loaded: {current_count}")
+                    
+                    # Stop if we've reached expected count
+                    if total_expected and current_count >= total_expected:
+                        st.write("Reached expected number of complaints")
+                        break
+                        
                     show_more_button = driver.find_element(By.CLASS_NAME, "showMoreCom")
                     if show_more_button.is_displayed() and show_more_button.is_enabled():
                         driver.execute_script("arguments[0].click();", show_more_button)
+                        st.write("Clicked Show More button")
                         time.sleep(5)
                     else:
+                        st.write("Show More button no longer available")
                         break
-                except:
+                except NoSuchElementException:
+                    st.write("No more Show More button found")
+                    break
+                except Exception as e:
+                    st.error(f"Error loading more results: {str(e)}")
                     break
             
             # Get all complaints and filter by date
